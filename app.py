@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import os
 
 API_URL = "https://api.voloridgehealth.com/health-score"
-API_KEY = os.environ.get("VOLORIDGE_API_KEY", "rzjjewPkQu3zi5tAeZSYm1QOpx6qFtrO8aIDtdiN")
+API_KEY = st.secrets.get("VOLORIDGE_API_KEY") or os.environ.get("VOLORIDGE_API_KEY")
 
 st.set_page_config(
     page_title="Health Score Simulator",
