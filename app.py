@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timezone
 import os
 import math
-import plotly.graph_objects as go
 
 API_URL = "https://api.voloridgehealth.com/health-score"
 API_KEY = st.secrets.get("VOLORIDGE_API_KEY") or os.environ.get("VOLORIDGE_API_KEY")
@@ -187,85 +186,97 @@ def find_score(disease_scores, category):
     return None
 
 
-def make_gauge(title, score, min_score, max_score, bio_age=None, age_delta=None):
+def make_gauge_svg(title, score, min_score, max_score, bio_age=None, age_delta=None):
     span = max_score - min_score or 1
-    p1 = min_score + span * 0.20
-    p2 = min_score + span * 0.40
-    p3 = min_score + span * 0.60
-    p4 = min_score + span * 0.80
+    W, H = 300, 210
+    cx, cy = 150, 148
+    R, ri = 115, 68
+    label_r = (R + ri) / 2
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=score,
-        title={
-            "text": (
-                "<span style='font-weight:300;font-size:1em'>volo</span>"
-                "<span style='font-weight:700;text-decoration:underline;font-size:1em'>SCORES</span>"
-                f"<br><span style='font-size:0.72em;color:#555;font-weight:400'>{title}</span>"
-            ),
-            "font": {"family": "Arial", "size": 16},
-        },
-        number={"font": {"size": 44, "color": "#212121", "family": "Arial"}, "valueformat": ".0f"},
-        gauge={
-            "axis": {
-                "range": [min_score, max_score],
-                "tickvals": [min_score, max_score],
-                "ticktext": [f"{int(min_score)}", f"{int(max_score)}"],
-                "tickfont": {"size": 10, "color": "#555"},
-                "tickwidth": 1,
-                "tickcolor": "#555",
-            },
-            "bar": {"color": "#111111", "thickness": 0.04},
-            "bgcolor": "white",
-            "borderwidth": 0,
-            "steps": [
-                {"range": [min_score, p1], "color": "#b71c1c"},
-                {"range": [p1,         p2], "color": "#ef5350"},
-                {"range": [p2,         p3], "color": "#bdbdbd"},
-                {"range": [p3,         p4], "color": "#66bb6a"},
-                {"range": [p4, max_score],  "color": "#1b5e20"},
-            ],
-        },
-    ))
+    def polar_xy(r, deg):
+        rad = math.radians(deg)
+        return cx + r * math.cos(rad), cy - r * math.sin(rad)
 
-    # Zone labels positioned along the arc
-    cx, cy, r = 0.5, 0.21, 0.35
-    zone_labels = [
-        (162, "Poor",      "white"),
-        (126, "Marginal",  "white"),
-        (90,  "Average",   "#333333"),
-        (54,  "Good",      "white"),
-        (18,  "Excellent", "white"),
-    ]
-    for angle_deg, label, color in zone_labels:
-        rad = math.radians(angle_deg)
-        fig.add_annotation(
-            x=cx + r * math.cos(rad),
-            y=cy + r * math.sin(rad),
-            text=label,
-            showarrow=False,
-            font={"size": 8, "color": color, "family": "Arial"},
-            xref="paper", yref="paper",
+    def arc_segment(pct_start, pct_end, color):
+        a1 = 180 - pct_start * 180
+        a2 = 180 - pct_end * 180
+        ox1, oy1 = polar_xy(R, a1)
+        ox2, oy2 = polar_xy(R, a2)
+        ix1, iy1 = polar_xy(ri, a1)
+        ix2, iy2 = polar_xy(ri, a2)
+        return (
+            f'<path d="M {ox1:.2f},{oy1:.2f} A {R} {R} 0 0 0 {ox2:.2f},{oy2:.2f} '
+            f'L {ix2:.2f},{iy2:.2f} A {ri} {ri} 0 0 1 {ix1:.2f},{iy1:.2f} Z" fill="{color}"/>'
         )
 
-    # VoloAge below the score number
+    zones = [
+        (0.0, 0.2, "#b71c1c", "Poor",      "white"),
+        (0.2, 0.4, "#ef5350", "Marginal",  "white"),
+        (0.4, 0.6, "#bdbdbd", "Average",   "#333333"),
+        (0.6, 0.8, "#66bb6a", "Good",      "white"),
+        (0.8, 1.0, "#1b5e20", "Excellent", "white"),
+    ]
+
+    segments = ""
+    labels_svg = ""
+    for pct_start, pct_end, color, name, text_color in zones:
+        segments += arc_segment(pct_start, pct_end, color)
+        mid_angle = 180 - ((pct_start + pct_end) / 2) * 180
+        lx, ly = polar_xy(label_r, mid_angle)
+        rotate = 90 - mid_angle
+        labels_svg += (
+            f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" dominant-baseline="middle" '
+            f'font-family="Arial" font-size="9" fill="{text_color}" '
+            f'transform="rotate({rotate:.1f},{lx:.1f},{ly:.1f})">{name}</text>'
+        )
+
+    needle_pct = max(0, min(1, (score - min_score) / span))
+    needle_angle = 180 - needle_pct * 180
+    nx, ny = polar_xy(R * 0.87, needle_angle)
+    needle_svg = (
+        f'<line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" '
+        f'stroke="#111111" stroke-width="2.5" stroke-linecap="round"/>'
+        f'<circle cx="{cx}" cy="{cy}" r="5" fill="#111111"/>'
+    )
+
+    score_svg = (
+        f'<text x="{cx}" y="{cy + 30}" text-anchor="middle" dominant-baseline="middle" '
+        f'font-family="Arial" font-size="40" font-weight="bold" fill="#212121">'
+        f'{score:.0f}</text>'
+    )
+
+    volo_svg = ""
     if bio_age is not None and age_delta is not None:
         sign = "+" if age_delta > 0 else ""
-        fig.add_annotation(
-            x=0.5, y=0.06,
-            text=f"VoloAge™: {bio_age:.0f} | {sign}{age_delta:.0f}",
-            showarrow=False,
-            font={"size": 11, "color": "#555555", "family": "Arial"},
-            xref="paper", yref="paper",
+        volo_svg = (
+            f'<text x="{cx}" y="{cy + 52}" text-anchor="middle" '
+            f'font-family="Arial" font-size="11" fill="#666666">'
+            f'VoloAge&#8482;: {bio_age:.0f} | {sign}{age_delta:.0f}</text>'
         )
 
-    fig.update_layout(
-        height=270,
-        margin=dict(l=30, r=30, t=80, b=50),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
+    title_svg = (
+        f'<text x="{cx}" y="16" text-anchor="middle" font-family="Arial" font-size="14" fill="#212121">'
+        f'<tspan font-weight="300">volo</tspan>'
+        f'<tspan font-weight="700" text-decoration="underline">SCORES</tspan></text>'
+        f'<text x="{cx}" y="32" text-anchor="middle" font-family="Arial" font-size="10" fill="#555555">'
+        f'{title}</text>'
     )
-    return fig
+
+    min_lx, min_ly = polar_xy(R + 14, 180)
+    max_lx, max_ly = polar_xy(R + 14, 0)
+    tick_svg = (
+        f'<text x="{min_lx:.1f}" y="{min_ly:.1f}" text-anchor="end" '
+        f'font-family="Arial" font-size="9" fill="#666">{int(min_score)}</text>'
+        f'<text x="{max_lx:.1f}" y="{max_ly:.1f}" text-anchor="start" '
+        f'font-family="Arial" font-size="9" fill="#666">{int(max_score)}</text>'
+    )
+
+    return (
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+        f'style="width:100%;max-width:{W}px;display:block;margin:auto">'
+        f'{segments}{labels_svg}{needle_svg}{score_svg}{volo_svg}{title_svg}{tick_svg}'
+        f'</svg>'
+    )
 
 
 def on_slider_change(idx):
@@ -392,8 +403,8 @@ def show_results_page():
             if ds:
                 hs = ds.get("health_score", {})
                 da = ds.get("disease_age", {})
-                st.plotly_chart(
-                    make_gauge(
+                st.markdown(
+                    make_gauge_svg(
                         cat_label,
                         hs.get("health_score", 0),
                         hs.get("min_score", 0),
@@ -401,8 +412,7 @@ def show_results_page():
                         bio_age=da.get("disease_age"),
                         age_delta=da.get("disease_age_delta"),
                     ),
-                    use_container_width=True,
-                    key=f"gauge_{cat_key}",
+                    unsafe_allow_html=True,
                 )
             else:
                 st.markdown(f"**{cat_label}**")
