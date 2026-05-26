@@ -8,6 +8,60 @@ import plotly.graph_objects as go
 API_URL = "https://api.voloridgehealth.com/health-score"
 API_KEY = st.secrets.get("VOLORIDGE_API_KEY") or os.environ.get("VOLORIDGE_API_KEY")
 
+# Set to False once your API key is working
+MOCK_MODE = True
+
+
+def get_mock_response():
+    return {
+        "scoring_results": [
+            {
+                "uid_ext": "simulator_user",
+                "data": [
+                    {
+                        "scoring_predictors": [
+                            {"predictor_code": "2093-3",  "predictor_name": "Total Cholesterol",    "value": "195.0", "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "2085-9",  "predictor_name": "HDL Cholesterol",      "value": "52.0",  "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "13457-7", "predictor_name": "LDL Cholesterol",      "value": "118.0", "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "2571-8",  "predictor_name": "Triglycerides",        "value": "130.0", "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "2345-7",  "predictor_name": "Fasting Glucose",      "value": "95.0",  "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "4548-4",  "predictor_name": "HbA1c",                "value": "5.4",   "unit": "%",           "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "8480-6",  "predictor_name": "Systolic BP",          "value": "122.0", "unit": "mmHg",        "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "8462-4",  "predictor_name": "Diastolic BP",         "value": "78.0",  "unit": "mmHg",        "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "1988-5",  "predictor_name": "C-Reactive Protein",   "value": "1.2",   "unit": "mg/L",        "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "33914-3", "predictor_name": "eGFR",                 "value": "88.0",  "unit": "mL/min/1.73m2","imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "39156-5", "predictor_name": "BMI",                  "value": "24.1",  "unit": "kg/m2",       "imputation_code": "SIDEWAYS"},
+                            {"predictor_code": "2160-0",  "predictor_name": "Creatinine",           "value": "0.9",   "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
+                        ],
+                        "disease_scores": [
+                            {
+                                "disease_name": "Cardiovascular Disease",
+                                "health_score": {"health_score": 75.0, "min_score": 0.0, "max_score": 100.0},
+                                "risk_ratios": {"your_risk_frac": 0.08, "peer_risk_frac": 0.10, "risk_ratio": 0.85},
+                                "disease_age": {"disease_age": 43.5, "disease_age_delta": -1.5},
+                                "score_percentile": 65.0,
+                            },
+                            {
+                                "disease_name": "Metabolic Disease",
+                                "health_score": {"health_score": 68.0, "min_score": 0.0, "max_score": 100.0},
+                                "risk_ratios": {"your_risk_frac": 0.12, "peer_risk_frac": 0.10, "risk_ratio": 1.10},
+                                "disease_age": {"disease_age": 46.8, "disease_age_delta": 1.8},
+                                "score_percentile": 48.0,
+                            },
+                            {
+                                "disease_name": "Longevity",
+                                "health_score": {"health_score": 80.0, "min_score": 0.0, "max_score": 100.0},
+                                "risk_ratios": {"your_risk_frac": 0.06, "peer_risk_frac": 0.09, "risk_ratio": 0.75},
+                                "disease_age": {"disease_age": 42.0, "disease_age_delta": -3.0},
+                                "score_percentile": 72.0,
+                            },
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
 SCORE_CATEGORIES = {
     "cardiovascular": ["cardiovascular", "cardiac", "heart", "coronary", "stroke", "vascular", "atrial", "arterial"],
     "metabolic": ["metabolic", "diabetes", "glucose", "insulin", "kidney", "renal", "liver", "thyroid", "obesity"],
@@ -81,6 +135,8 @@ def build_request(age, sex, height_cm, weight_kg, pack_years, extra_predictors=N
 
 
 def call_api(payload):
+    if MOCK_MODE:
+        return get_mock_response()
     headers = {"x-api-key": API_KEY, "Content-Type": "application/json"}
     return requests.post(API_URL, json=payload, headers=headers, timeout=30)
 
@@ -131,6 +187,8 @@ def on_input_change(idx):
 # ── Page 1: Input ─────────────────────────────────────────────────────────────
 def show_input_page():
     st.image("logo.png", width=280)
+    if MOCK_MODE:
+        st.info("Demo mode — showing sample data. No API connection required.")
     st.markdown("## VOLO Score Simulator")
     st.markdown("Enter your basic information below to receive your personalized VOLO Scores.")
 
@@ -178,8 +236,13 @@ def show_input_page():
                 st.error(f"Connection error: {e}")
                 st.stop()
 
-        if response.status_code == 200:
-            data = response.json()
+        data = response if MOCK_MODE else (response.json() if response.status_code == 200 else None)
+        if not MOCK_MODE and response.status_code != 200:
+            st.error(f"API returned an error ({response.status_code}):")
+            st.code(response.text)
+            st.stop()
+
+        if True:
             results = data.get("scoring_results", [])
             if not results or not results[0].get("data"):
                 st.warning("No scores were returned. Please check your inputs.")
@@ -218,9 +281,6 @@ def show_input_page():
 
             st.session_state.page = "results"
             st.rerun()
-        else:
-            st.error(f"API returned an error ({response.status_code}):")
-            st.code(response.text)
 
 
 # ── Page 2: Results ───────────────────────────────────────────────────────────
@@ -351,7 +411,10 @@ def show_results_page():
             except requests.exceptions.RequestException as e:
                 st.error(f"Connection error: {e}")
                 st.stop()
-        if resp.status_code == 200:
+        if MOCK_MODE:
+            st.session_state.api_response = resp
+            st.rerun()
+        elif resp.status_code == 200:
             st.session_state.api_response = resp.json()
             st.rerun()
         else:
