@@ -3,6 +3,7 @@ import requests
 import uuid
 from datetime import datetime, timezone
 import os
+import math
 import plotly.graph_objects as go
 
 API_URL = "https://api.voloridgehealth.com/health-score"
@@ -186,25 +187,84 @@ def find_score(disease_scores, category):
     return None
 
 
-def make_gauge(title, score, min_score, max_score):
+def make_gauge(title, score, min_score, max_score, bio_age=None, age_delta=None):
     span = max_score - min_score or 1
+    p1 = min_score + span * 0.20
+    p2 = min_score + span * 0.40
+    p3 = min_score + span * 0.60
+    p4 = min_score + span * 0.80
+
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=score,
-        title={"text": title, "font": {"size": 15, "color": "#1f4e79"}},
-        number={"font": {"size": 32, "color": "#1f4e79"}},
+        title={
+            "text": (
+                "<span style='font-weight:300;font-size:1em'>volo</span>"
+                "<span style='font-weight:700;text-decoration:underline;font-size:1em'>SCORES</span>"
+                f"<br><span style='font-size:0.72em;color:#555;font-weight:400'>{title}</span>"
+            ),
+            "font": {"family": "Arial", "size": 16},
+        },
+        number={"font": {"size": 44, "color": "#212121", "family": "Arial"}, "valueformat": ".0f"},
         gauge={
-            "axis": {"range": [min_score, max_score], "tickwidth": 1},
-            "bar": {"color": "#1f4e79", "thickness": 0.28},
+            "axis": {
+                "range": [min_score, max_score],
+                "tickvals": [min_score, max_score],
+                "ticktext": [f"{int(min_score)}", f"{int(max_score)}"],
+                "tickfont": {"size": 10, "color": "#555"},
+                "tickwidth": 1,
+                "tickcolor": "#555",
+            },
+            "bar": {"color": "#111111", "thickness": 0.04},
             "bgcolor": "white",
+            "borderwidth": 0,
             "steps": [
-                {"range": [min_score, min_score + span * 0.33], "color": "#ffe0e0"},
-                {"range": [min_score + span * 0.33, min_score + span * 0.66], "color": "#fff3cd"},
-                {"range": [min_score + span * 0.66, max_score], "color": "#d4edda"},
+                {"range": [min_score, p1], "color": "#b71c1c"},
+                {"range": [p1,         p2], "color": "#ef5350"},
+                {"range": [p2,         p3], "color": "#bdbdbd"},
+                {"range": [p3,         p4], "color": "#66bb6a"},
+                {"range": [p4, max_score],  "color": "#1b5e20"},
             ],
         },
     ))
-    fig.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=10), paper_bgcolor="white")
+
+    # Zone labels positioned along the arc
+    cx, cy, r = 0.5, 0.21, 0.35
+    zone_labels = [
+        (162, "Poor",      "white"),
+        (126, "Marginal",  "white"),
+        (90,  "Average",   "#333333"),
+        (54,  "Good",      "white"),
+        (18,  "Excellent", "white"),
+    ]
+    for angle_deg, label, color in zone_labels:
+        rad = math.radians(angle_deg)
+        fig.add_annotation(
+            x=cx + r * math.cos(rad),
+            y=cy + r * math.sin(rad),
+            text=label,
+            showarrow=False,
+            font={"size": 8, "color": color, "family": "Arial"},
+            xref="paper", yref="paper",
+        )
+
+    # VoloAge below the score number
+    if bio_age is not None and age_delta is not None:
+        sign = "+" if age_delta > 0 else ""
+        fig.add_annotation(
+            x=0.5, y=0.06,
+            text=f"VoloAge™: {bio_age:.0f} | {sign}{age_delta:.0f}",
+            showarrow=False,
+            font={"size": 11, "color": "#555555", "family": "Arial"},
+            xref="paper", yref="paper",
+        )
+
+    fig.update_layout(
+        height=270,
+        margin=dict(l=30, r=30, t=80, b=50),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+    )
     return fig
 
 
@@ -331,8 +391,16 @@ def show_results_page():
         with col:
             if ds:
                 hs = ds.get("health_score", {})
+                da = ds.get("disease_age", {})
                 st.plotly_chart(
-                    make_gauge(cat_label, hs.get("health_score", 0), hs.get("min_score", 0), hs.get("max_score", 100)),
+                    make_gauge(
+                        cat_label,
+                        hs.get("health_score", 0),
+                        hs.get("min_score", 0),
+                        hs.get("max_score", 100),
+                        bio_age=da.get("disease_age"),
+                        age_delta=da.get("disease_age_delta"),
+                    ),
                     use_container_width=True,
                     key=f"gauge_{cat_key}",
                 )
