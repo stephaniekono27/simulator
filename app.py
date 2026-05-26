@@ -8,7 +8,7 @@ API_URL = "https://api.voloridgehealth.com/health-score"
 API_KEY = st.secrets.get("VOLORIDGE_API_KEY") or os.environ.get("VOLORIDGE_API_KEY")
 
 st.set_page_config(
-    page_title="Health Score Simulator",
+    page_title="VOLO Score Simulator",
     page_icon="🏥",
     layout="wide",
 )
@@ -110,8 +110,9 @@ def call_api(payload):
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 
-st.title("Your Personal Health Score")
-st.markdown("Enter your basic information below to receive personalized health scores.")
+st.image("logo.png", width=280)
+st.markdown("## VOLO Score Simulator")
+st.markdown("Enter your basic information below to receive your personalized VOLO Scores.")
 
 with st.form("health_form"):
     col1, col2 = st.columns(2)
