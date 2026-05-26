@@ -11,56 +11,39 @@ API_KEY = st.secrets.get("VOLORIDGE_API_KEY") or os.environ.get("VOLORIDGE_API_K
 # Set to False once your API key is working
 MOCK_MODE = True
 
+# Ordered list of the 12 biomarkers to display
+BIOMARKER_ORDER = [
+    "29463-7",  # Weight
+    "8480-6",   # Systolic BP
+    "4548-4",   # HbA1c
+    "2085-9",   # HDL
+    "13457-7",  # LDL
+    "1884-6",   # ApoB
+    "718-7",    # Hemoglobin
+    "788-0",    # RDW
+    "6690-2",   # WBC
+    "2160-0",   # Creatinine
+    "33863-2",  # Cystatin C
+    "1988-5",   # CRP
+]
 
-def get_mock_response():
-    return {
-        "scoring_results": [
-            {
-                "uid_ext": "simulator_user",
-                "data": [
-                    {
-                        "scoring_predictors": [
-                            {"predictor_code": "2093-3",  "predictor_name": "Total Cholesterol",    "value": "195.0", "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "2085-9",  "predictor_name": "HDL Cholesterol",      "value": "52.0",  "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "13457-7", "predictor_name": "LDL Cholesterol",      "value": "118.0", "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "2571-8",  "predictor_name": "Triglycerides",        "value": "130.0", "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "2345-7",  "predictor_name": "Fasting Glucose",      "value": "95.0",  "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "4548-4",  "predictor_name": "HbA1c",                "value": "5.4",   "unit": "%",           "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "8480-6",  "predictor_name": "Systolic BP",          "value": "122.0", "unit": "mmHg",        "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "8462-4",  "predictor_name": "Diastolic BP",         "value": "78.0",  "unit": "mmHg",        "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "1988-5",  "predictor_name": "C-Reactive Protein",   "value": "1.2",   "unit": "mg/L",        "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "33914-3", "predictor_name": "eGFR",                 "value": "88.0",  "unit": "mL/min/1.73m2","imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "39156-5", "predictor_name": "BMI",                  "value": "24.1",  "unit": "kg/m2",       "imputation_code": "SIDEWAYS"},
-                            {"predictor_code": "2160-0",  "predictor_name": "Creatinine",           "value": "0.9",   "unit": "mg/dL",       "imputation_code": "SIDEWAYS"},
-                        ],
-                        "disease_scores": [
-                            {
-                                "disease_name": "Cardiovascular Disease",
-                                "health_score": {"health_score": 75.0, "min_score": 0.0, "max_score": 100.0},
-                                "risk_ratios": {"your_risk_frac": 0.08, "peer_risk_frac": 0.10, "risk_ratio": 0.85},
-                                "disease_age": {"disease_age": 43.5, "disease_age_delta": -1.5},
-                                "score_percentile": 65.0,
-                            },
-                            {
-                                "disease_name": "Metabolic Disease",
-                                "health_score": {"health_score": 68.0, "min_score": 0.0, "max_score": 100.0},
-                                "risk_ratios": {"your_risk_frac": 0.12, "peer_risk_frac": 0.10, "risk_ratio": 1.10},
-                                "disease_age": {"disease_age": 46.8, "disease_age_delta": 1.8},
-                                "score_percentile": 48.0,
-                            },
-                            {
-                                "disease_name": "Longevity",
-                                "health_score": {"health_score": 80.0, "min_score": 0.0, "max_score": 100.0},
-                                "risk_ratios": {"your_risk_frac": 0.06, "peer_risk_frac": 0.09, "risk_ratio": 0.75},
-                                "disease_age": {"disease_age": 42.0, "disease_age_delta": -3.0},
-                                "score_percentile": 72.0,
-                            },
-                        ],
-                    }
-                ],
-            }
-        ]
-    }
+# Per-biomarker display config.
+# to_display: multiply API value (in api_unit) to get display value
+# to_api:     multiply display value to get API value
+BIOMARKER_CONFIG = {
+    "29463-7": {"name": "Weight",       "unit": "lbs",      "api_unit": "kg",        "to_display": 2.20462, "to_api": 0.453592, "min": 50.0,  "max": 600.0, "step": 1.0,  "default": 170.0},
+    "8480-6":  {"name": "Systolic BP",  "unit": "mmHg",     "api_unit": "mmHg",      "to_display": 1.0,     "to_api": 1.0,      "min": 80.0,  "max": 200.0, "step": 1.0,  "default": 120.0},
+    "4548-4":  {"name": "HbA1c",        "unit": "%",        "api_unit": "%",         "to_display": 1.0,     "to_api": 1.0,      "min": 4.0,   "max": 15.0,  "step": 0.1,  "default": 5.4},
+    "2085-9":  {"name": "HDL",          "unit": "mg/dL",    "api_unit": "mg/dL",     "to_display": 1.0,     "to_api": 1.0,      "min": 20.0,  "max": 100.0, "step": 1.0,  "default": 52.0},
+    "13457-7": {"name": "LDL",          "unit": "mg/dL",    "api_unit": "mg/dL",     "to_display": 1.0,     "to_api": 1.0,      "min": 30.0,  "max": 300.0, "step": 1.0,  "default": 118.0},
+    "1884-6":  {"name": "ApoB",         "unit": "mg/dL",    "api_unit": "mg/dL",     "to_display": 1.0,     "to_api": 1.0,      "min": 40.0,  "max": 200.0, "step": 1.0,  "default": 85.0},
+    "718-7":   {"name": "Hemoglobin",   "unit": "g/dL",     "api_unit": "g/dL",      "to_display": 1.0,     "to_api": 1.0,      "min": 8.0,   "max": 20.0,  "step": 0.1,  "default": 14.5},
+    "788-0":   {"name": "RDW",          "unit": "%",        "api_unit": "%",         "to_display": 1.0,     "to_api": 1.0,      "min": 10.0,  "max": 25.0,  "step": 0.1,  "default": 13.2},
+    "6690-2":  {"name": "WBC",          "unit": "10³/µL",   "api_unit": "10^3/uL",   "to_display": 1.0,     "to_api": 1.0,      "min": 2.0,   "max": 20.0,  "step": 0.1,  "default": 6.5},
+    "2160-0":  {"name": "Creatinine",   "unit": "mg/dL",    "api_unit": "mg/dL",     "to_display": 1.0,     "to_api": 1.0,      "min": 0.4,   "max": 3.0,   "step": 0.01, "default": 0.9},
+    "33863-2": {"name": "Cystatin C",   "unit": "mg/L",     "api_unit": "mg/L",      "to_display": 1.0,     "to_api": 1.0,      "min": 0.5,   "max": 3.0,   "step": 0.01, "default": 0.9},
+    "1988-5":  {"name": "CRP",          "unit": "mg/L",     "api_unit": "mg/L",      "to_display": 1.0,     "to_api": 1.0,      "min": 0.1,   "max": 20.0,  "step": 0.1,  "default": 1.2},
+}
 
 SCORE_CATEGORIES = {
     "cardiovascular": ["cardiovascular", "cardiac", "heart", "coronary", "stroke", "vascular", "atrial", "arterial"],
@@ -68,22 +51,7 @@ SCORE_CATEGORIES = {
     "longevity": ["longevity", "mortality", "life", "aging", "overall", "all-cause"],
 }
 
-UNIT_RANGES = {
-    "mg/dL": (0.0, 500.0),
-    "mmHg": (40.0, 200.0),
-    "%": (0.0, 100.0),
-    "mg/L": (0.0, 50.0),
-    "IU/L": (0.0, 500.0),
-    "g/dL": (0.0, 20.0),
-    "umol/L": (0.0, 1000.0),
-    "nmol/L": (0.0, 100.0),
-    "mIU/L": (0.0, 100.0),
-    "kg/m2": (10.0, 60.0),
-    "mmol/L": (0.0, 30.0),
-}
-
 st.set_page_config(page_title="VOLO Score Simulator", page_icon="🏥", layout="wide")
-
 st.markdown("""
 <style>
     .block-container { padding-top: 2rem; }
@@ -92,19 +60,55 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def get_slider_range(value_str, unit):
-    try:
-        v = float(value_str)
-    except (ValueError, TypeError):
-        v = 0.0
-    base_min, base_max = UNIT_RANGES.get(unit, (0.0, max(v * 3.0, 100.0)))
-    actual_min = min(base_min, v * 0.5) if v > 0 else base_min
-    actual_max = max(base_max, v * 2.0)
-    if actual_min >= actual_max:
-        actual_max = actual_min + 100.0
-    return round(actual_min, 4), round(actual_max, 4)
+# ── Mock data ─────────────────────────────────────────────────────────────────
+def get_mock_response(weight_lbs=170.0):
+    return {
+        "scoring_results": [{
+            "uid_ext": "simulator_user",
+            "data": [{
+                "scoring_predictors": [
+                    {"predictor_code": "29463-7", "predictor_name": "Weight",      "value": str(round(weight_lbs * 0.453592, 1)), "unit": "kg",       "imputation_code": "GIVEN"},
+                    {"predictor_code": "8480-6",  "predictor_name": "Systolic BP", "value": "122.0", "unit": "mmHg",     "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "4548-4",  "predictor_name": "HbA1c",       "value": "5.4",   "unit": "%",        "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "2085-9",  "predictor_name": "HDL",         "value": "52.0",  "unit": "mg/dL",    "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "13457-7", "predictor_name": "LDL",         "value": "118.0", "unit": "mg/dL",    "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "1884-6",  "predictor_name": "ApoB",        "value": "85.0",  "unit": "mg/dL",    "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "718-7",   "predictor_name": "Hemoglobin",  "value": "14.5",  "unit": "g/dL",     "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "788-0",   "predictor_name": "RDW",         "value": "13.2",  "unit": "%",        "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "6690-2",  "predictor_name": "WBC",         "value": "6.5",   "unit": "10^3/uL",  "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "2160-0",  "predictor_name": "Creatinine",  "value": "0.9",   "unit": "mg/dL",    "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "33863-2", "predictor_name": "Cystatin C",  "value": "0.9",   "unit": "mg/L",     "imputation_code": "SIDEWAYS"},
+                    {"predictor_code": "1988-5",  "predictor_name": "CRP",         "value": "1.2",   "unit": "mg/L",     "imputation_code": "SIDEWAYS"},
+                ],
+                "disease_scores": [
+                    {
+                        "disease_name": "Cardiovascular Disease",
+                        "health_score": {"health_score": 75.0, "min_score": 0.0, "max_score": 100.0},
+                        "risk_ratios": {"your_risk_frac": 0.08, "peer_risk_frac": 0.10, "risk_ratio": 0.85},
+                        "disease_age": {"disease_age": 43.5, "disease_age_delta": -1.5},
+                        "score_percentile": 65.0,
+                    },
+                    {
+                        "disease_name": "Metabolic Disease",
+                        "health_score": {"health_score": 68.0, "min_score": 0.0, "max_score": 100.0},
+                        "risk_ratios": {"your_risk_frac": 0.12, "peer_risk_frac": 0.10, "risk_ratio": 1.10},
+                        "disease_age": {"disease_age": 46.8, "disease_age_delta": 1.8},
+                        "score_percentile": 48.0,
+                    },
+                    {
+                        "disease_name": "Longevity",
+                        "health_score": {"health_score": 80.0, "min_score": 0.0, "max_score": 100.0},
+                        "risk_ratios": {"your_risk_frac": 0.06, "peer_risk_frac": 0.09, "risk_ratio": 0.75},
+                        "disease_age": {"disease_age": 42.0, "disease_age_delta": -3.0},
+                        "score_percentile": 72.0,
+                    },
+                ],
+            }],
+        }],
+    }
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def inches_to_cm(total_inches):
     return total_inches * 2.54
 
@@ -113,11 +117,44 @@ def lbs_to_kg(lbs):
     return lbs * 0.453592
 
 
+def build_biomarker_list(scoring_predictors, weight_lbs):
+    predictor_map = {p["predictor_code"]: p for p in scoring_predictors}
+    biomarkers = []
+    for code in BIOMARKER_ORDER:
+        cfg = BIOMARKER_CONFIG[code]
+        p = predictor_map.get(code)
+        if p:
+            try:
+                api_val = float(p["value"])
+            except (ValueError, TypeError):
+                api_val = cfg["default"] * cfg["to_api"]
+            display_val = round(api_val * cfg["to_display"], 4)
+        else:
+            display_val = cfg["default"]
+        # For weight, use the actual input value (already in lbs)
+        if code == "29463-7":
+            display_val = round(weight_lbs, 1)
+        biomarkers.append({
+            "code": code,
+            "name": cfg["name"],
+            "value": display_val,
+            "adjusted_value": display_val,
+            "unit": cfg["unit"],
+            "api_unit": cfg["api_unit"],
+            "to_api": cfg["to_api"],
+            "is_real": False,
+            "min": cfg["min"],
+            "max": cfg["max"],
+            "step": cfg["step"],
+        })
+    return biomarkers
+
+
 def build_request(age, sex, height_cm, weight_kg, pack_years, extra_predictors=None):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     predictors = [
         {"id": str(uuid.uuid4()), "observation_code": "30525-0", "value": str(age), "unit": "a"},
-        {"id": str(uuid.uuid4()), "observation_code": "8302-2", "value": str(round(height_cm, 1)), "unit": "cm"},
+        {"id": str(uuid.uuid4()), "observation_code": "8302-2",  "value": str(round(height_cm, 1)), "unit": "cm"},
         {"id": str(uuid.uuid4()), "observation_code": "29463-7", "value": str(round(weight_kg, 1)), "unit": "kg"},
         {"id": str(uuid.uuid4()), "observation_code": "46098-0", "value": sex.lower(), "unit": ""},
         {"id": str(uuid.uuid4()), "observation_code": "64219-9", "value": str(round(pack_years, 2)), "unit": "pack/years"},
@@ -134,9 +171,9 @@ def build_request(age, sex, height_cm, weight_kg, pack_years, extra_predictors=N
     }
 
 
-def call_api(payload):
+def call_api(payload, weight_lbs=170.0):
     if MOCK_MODE:
-        return get_mock_response()
+        return get_mock_response(weight_lbs=weight_lbs)
     headers = {"x-api-key": API_KEY, "Content-Type": "application/json"}
     return requests.post(API_URL, json=payload, headers=headers, timeout=30)
 
@@ -144,8 +181,7 @@ def call_api(payload):
 def find_score(disease_scores, category):
     keywords = SCORE_CATEGORIES[category]
     for ds in disease_scores:
-        name = ds.get("disease_name", "").lower()
-        if any(kw in name for kw in keywords):
+        if any(kw in ds.get("disease_name", "").lower() for kw in keywords):
             return ds
     return None
 
@@ -231,56 +267,41 @@ def show_input_page():
 
         with st.spinner("Calculating your VOLO Scores..."):
             try:
-                response = call_api(payload)
+                response = call_api(payload, weight_lbs=float(weight_lbs))
             except requests.exceptions.RequestException as e:
                 st.error(f"Connection error: {e}")
                 st.stop()
 
-        data = response if MOCK_MODE else (response.json() if response.status_code == 200 else None)
-        if not MOCK_MODE and response.status_code != 200:
+        if MOCK_MODE:
+            data = response
+        elif response.status_code == 200:
+            data = response.json()
+        else:
             st.error(f"API returned an error ({response.status_code}):")
             st.code(response.text)
             st.stop()
 
-        if True:
-            results = data.get("scoring_results", [])
-            if not results or not results[0].get("data"):
-                st.warning("No scores were returned. Please check your inputs.")
-                st.stop()
+        results = data.get("scoring_results", [])
+        if not results or not results[0].get("data"):
+            st.warning("No scores were returned. Please check your inputs.")
+            st.stop()
 
-            scoring_predictors = results[0]["data"][0].get("scoring_predictors", [])
-            biomarkers = []
-            for p in scoring_predictors:
-                if p.get("imputation_code", "GIVEN") != "GIVEN":
-                    try:
-                        v = float(p.get("value", 0))
-                    except (ValueError, TypeError):
-                        continue
-                    unit = p.get("unit", "")
-                    rng = get_slider_range(p.get("value", 0), unit)
-                    biomarkers.append({
-                        "code": p.get("predictor_code", ""),
-                        "name": p.get("predictor_name") or p.get("predictor_code", "Unknown"),
-                        "value": v,
-                        "adjusted_value": v,
-                        "unit": unit,
-                        "is_real": False,
-                        "min": rng[0],
-                        "max": rng[1],
-                    })
+        scoring_predictors = results[0]["data"][0].get("scoring_predictors", [])
+        biomarkers = build_biomarker_list(scoring_predictors, float(weight_lbs))
 
-            st.session_state.api_response = data
-            st.session_state.input_data = {
-                "age": age, "sex": sex,
-                "height_cm": height_cm, "weight_kg": weight_kg, "pack_years": pack_years,
-            }
-            st.session_state.biomarkers = biomarkers[:12]
-            for i, bm in enumerate(biomarkers[:12]):
-                st.session_state[f"slider_{i}"] = bm["value"]
-                st.session_state[f"input_{i}"] = bm["value"]
+        st.session_state.api_response = data
+        st.session_state.input_data = {
+            "age": age, "sex": sex,
+            "height_cm": height_cm, "weight_kg": weight_kg,
+            "weight_lbs": float(weight_lbs), "pack_years": pack_years,
+        }
+        st.session_state.biomarkers = biomarkers
+        for i, bm in enumerate(biomarkers):
+            st.session_state[f"slider_{i}"] = bm["value"]
+            st.session_state[f"input_{i}"] = bm["value"]
 
-            st.session_state.page = "results"
-            st.rerun()
+        st.session_state.page = "results"
+        st.rerun()
 
 
 # ── Page 2: Results ───────────────────────────────────────────────────────────
@@ -324,65 +345,64 @@ def show_results_page():
     st.markdown("### Your Biomarkers")
     st.caption(
         "These values were estimated from your basic information. "
-        "Slide or type to adjust a value, then mark it as **Real** when you have an actual measurement."
+        "Slide or type to adjust, then mark as **Real** when you have an actual measurement."
     )
 
     biomarkers = st.session_state.biomarkers
-    if not biomarkers:
-        st.info("No imputed biomarkers were returned by the API.")
-    else:
-        h0, h1, h2, h3, h4 = st.columns([2.5, 3.5, 1.2, 1.0, 1.5])
-        h0.markdown("**Biomarker**")
-        h1.markdown("**Adjust**")
-        h2.markdown("**Value**")
-        h3.markdown("**Unit**")
-        h4.markdown("**Status**")
-        st.markdown("<hr style='margin:2px 0 10px 0'>", unsafe_allow_html=True)
+    h0, h1, h2, h3, h4 = st.columns([2.2, 3.8, 1.2, 1.0, 1.5])
+    h0.markdown("**Biomarker**")
+    h1.markdown("**Adjust**")
+    h2.markdown("**Value**")
+    h3.markdown("**Unit**")
+    h4.markdown("**Status**")
+    st.markdown("<hr style='margin:2px 0 10px 0'>", unsafe_allow_html=True)
 
-        for i, bm in enumerate(biomarkers):
-            is_real = bm.get("is_real", False)
-            c0, c1, c2, c3, c4 = st.columns([2.5, 3.5, 1.2, 1.0, 1.5])
+    for i, bm in enumerate(biomarkers):
+        is_real = bm.get("is_real", False)
+        c0, c1, c2, c3, c4 = st.columns([2.2, 3.8, 1.2, 1.0, 1.5])
 
-            with c0:
-                icon = "🔵" if is_real else "⚪"
-                st.markdown(f"{icon} **{bm['name']}**")
+        with c0:
+            icon = "🔵" if is_real else "⚪"
+            st.markdown(f"{icon} **{bm['name']}**")
 
-            with c1:
-                st.slider(
-                    f"s{i}",
-                    min_value=float(bm["min"]),
-                    max_value=float(bm["max"]),
-                    value=float(st.session_state.get(f"slider_{i}", bm["adjusted_value"])),
-                    label_visibility="collapsed",
-                    key=f"slider_{i}",
-                    on_change=on_slider_change,
-                    args=(i,),
-                )
+        with c1:
+            st.slider(
+                f"s{i}",
+                min_value=float(bm["min"]),
+                max_value=float(bm["max"]),
+                value=float(st.session_state.get(f"slider_{i}", bm["adjusted_value"])),
+                step=float(bm["step"]),
+                label_visibility="collapsed",
+                key=f"slider_{i}",
+                on_change=on_slider_change,
+                args=(i,),
+            )
 
-            with c2:
-                st.number_input(
-                    f"n{i}",
-                    min_value=float(bm["min"]),
-                    max_value=float(bm["max"]),
-                    value=float(st.session_state.get(f"input_{i}", bm["adjusted_value"])),
-                    label_visibility="collapsed",
-                    key=f"input_{i}",
-                    on_change=on_input_change,
-                    args=(i,),
-                )
+        with c2:
+            st.number_input(
+                f"n{i}",
+                min_value=float(bm["min"]),
+                max_value=float(bm["max"]),
+                value=float(st.session_state.get(f"input_{i}", bm["adjusted_value"])),
+                step=float(bm["step"]),
+                label_visibility="collapsed",
+                key=f"input_{i}",
+                on_change=on_input_change,
+                args=(i,),
+            )
 
-            with c3:
-                st.markdown(f"<div style='padding-top:8px'><small>{bm['unit']}</small></div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div style='padding-top:8px'><small>{bm['unit']}</small></div>", unsafe_allow_html=True)
 
-            with c4:
-                if is_real:
-                    if st.button("✅ Real", key=f"real_{i}", type="primary"):
-                        st.session_state.biomarkers[i]["is_real"] = False
-                        st.rerun()
-                else:
-                    if st.button("Set as Real", key=f"real_{i}"):
-                        st.session_state.biomarkers[i]["is_real"] = True
-                        st.rerun()
+        with c4:
+            if is_real:
+                if st.button("✅ Real", key=f"real_{i}", type="primary"):
+                    st.session_state.biomarkers[i]["is_real"] = False
+                    st.rerun()
+            else:
+                if st.button("Set as Real", key=f"real_{i}"):
+                    st.session_state.biomarkers[i]["is_real"] = True
+                    st.rerun()
 
     # ── Recalculate ────────────────────────────────────────────────────────
     st.markdown("---")
@@ -396,8 +416,8 @@ def show_results_page():
             {
                 "id": str(uuid.uuid4()),
                 "observation_code": bm["code"],
-                "value": str(round(bm["adjusted_value"], 4)),
-                "unit": bm["unit"],
+                "value": str(round(bm["adjusted_value"] * bm["to_api"], 4)),
+                "unit": bm["api_unit"],
             }
             for bm in biomarkers if bm.get("is_real")
         ]
@@ -407,10 +427,11 @@ def show_results_page():
         )
         with st.spinner("Recalculating..."):
             try:
-                resp = call_api(payload)
+                resp = call_api(payload, weight_lbs=d.get("weight_lbs", 170.0))
             except requests.exceptions.RequestException as e:
                 st.error(f"Connection error: {e}")
                 st.stop()
+
         if MOCK_MODE:
             st.session_state.api_response = resp
             st.rerun()
